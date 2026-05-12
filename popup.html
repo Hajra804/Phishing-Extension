@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PhishGuard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg:        #090c10;
+      --surface:   #0d1117;
+      --border:    #1e2d40;
+      --accent:    #00e5ff;
+      --danger:    #ff3b5c;
+      --safe:      #00ff9f;
+      --warn:      #ffb800;
+      --muted:     #4a5568;
+      --text:      #c9d1d9;
+      --text-hi:   #f0f6fc;
+      --mono:      'Share Tech Mono', monospace;
+      --sans:      'Rajdhani', sans-serif;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      width: 340px;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      font-size: 14px;
+      overflow: hidden;
+    }
+
+    /* ─── scanline overlay ─── */
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        rgba(0,229,255,.018) 2px,
+        rgba(0,229,255,.018) 4px
+      );
+      pointer-events: none;
+      z-index: 100;
+    }
+
+    /* ─── header ─── */
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 14px 16px 12px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+      position: relative;
+      overflow: hidden;
+    }
+    .header::after {
+      content: '';
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--accent), transparent);
+      opacity: .5;
+    }
+    .logo {
+      width: 32px; height: 32px;
+      background: linear-gradient(135deg, var(--accent), #0080ff);
+      border-radius: 6px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 17px;
+      flex-shrink: 0;
+      box-shadow: 0 0 12px rgba(0,229,255,.35);
+    }
+    .brand { flex: 1; }
+    .brand-name {
+      font-size: 17px;
+      font-weight: 700;
+      color: var(--text-hi);
+      letter-spacing: .04em;
+      line-height: 1;
+    }
+    .brand-name span { color: var(--accent); }
+    .brand-sub {
+      font-family: var(--mono);
+      font-size: 9px;
+      color: var(--muted);
+      letter-spacing: .08em;
+      margin-top: 2px;
+    }
+    .status-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--safe);
+      box-shadow: 0 0 8px var(--safe);
+      animation: pulse-dot 2s ease-in-out infinite;
+    }
+    @keyframes pulse-dot {
+      0%,100% { opacity: 1; } 50% { opacity: .4; }
+    }
+
+    /* ─── main body ─── */
+    .body { padding: 14px 16px; display: flex; flex-direction: column; gap: 14px; }
+
+    /* ─── result card ─── */
+    .result-card {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+      background: var(--surface);
+      transition: border-color .3s;
+    }
+    .result-card.phishing  { border-color: var(--danger); }
+    .result-card.safe      { border-color: var(--safe); }
+    .result-card.scanning  { border-color: var(--accent); }
+
+    .result-bar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 14px;
+      position: relative;
+      overflow: hidden;
+    }
+    .result-bar::before {
+      content: '';
+      position: absolute; inset: 0;
+      opacity: .07;
+      transition: background .3s;
+    }
+    .result-card.phishing  .result-bar::before { background: var(--danger); }
+    .result-card.safe      .result-bar::before { background: var(--safe); }
+    .result-card.scanning  .result-bar::before { background: var(--accent); }
+
+    .result-icon { font-size: 22px; flex-shrink: 0; }
+    .result-info { flex: 1; }
+    .result-label {
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: .06em;
+      color: var(--text-hi);
+    }
+    .result-card.phishing .result-label { color: var(--danger); }
+    .result-card.safe     .result-label { color: var(--safe); }
+
+    .result-sub {
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+    .confidence-badge {
+      font-family: var(--mono);
+      font-size: 12px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 4px;
+      border: 1px solid currentColor;
+    }
+    .result-card.phishing .confidence-badge { color: var(--danger); }
+    .result-card.safe     .confidence-badge { color: var(--safe); }
+    .result-card.scanning .confidence-badge { color: var(--accent); }
+
+    /* scan animation */
+    .scan-bar {
+      height: 2px;
+      background: var(--border);
+      overflow: hidden;
+    }
+    .scan-bar-inner {
+      height: 100%;
+      background: linear-gradient(90deg, transparent, var(--accent), transparent);
+      width: 60%;
+      animation: scan 1.2s linear infinite;
+    }
+    @keyframes scan {
+      from { transform: translateX(-100%); }
+      to   { transform: translateX(250%); }
+    }
+
+    /* ─── risk factors ─── */
+    .section-title {
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--muted);
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .section-title::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    .factors-list { display: flex; flex-direction: column; gap: 6px; }
+    .factor {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 7px 10px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 13px;
+    }
+    .factor-icon { font-size: 14px; flex-shrink: 0; }
+    .factor-text { flex: 1; color: var(--text); }
+    .factor-score {
+      font-family: var(--mono);
+      font-size: 11px;
+      padding: 2px 6px;
+      border-radius: 3px;
+    }
+    .factor-score.high   { background: rgba(255,59,92,.15); color: var(--danger); }
+    .factor-score.medium { background: rgba(255,184,0,.12); color: var(--warn); }
+    .factor-score.low    { background: rgba(0,255,159,.1);  color: var(--safe); }
+
+    /* ─── action buttons ─── */
+    .actions { display: flex; gap: 8px; }
+    .btn {
+      flex: 1;
+      padding: 9px 0;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--surface);
+      color: var(--text);
+      font-family: var(--sans);
+      font-weight: 600;
+      font-size: 13px;
+      letter-spacing: .04em;
+      cursor: pointer;
+      transition: all .15s;
+      display: flex; align-items: center; justify-content: center; gap: 6px;
+    }
+    .btn:hover { background: #161b22; border-color: var(--accent); color: var(--accent); }
+    .btn.primary {
+      background: rgba(0,229,255,.1);
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+    .btn.primary:hover { background: rgba(0,229,255,.2); }
+    .btn.danger {
+      background: rgba(255,59,92,.1);
+      border-color: var(--danger);
+      color: var(--danger);
+    }
+    .btn.danger:hover { background: rgba(255,59,92,.2); }
+
+    /* ─── footer ─── */
+    .footer {
+      padding: 8px 16px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--surface);
+    }
+    .footer-stat {
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--muted);
+    }
+    .footer-stat span { color: var(--accent); }
+
+    /* ─── idle state ─── */
+    .idle-state {
+      text-align: center;
+      padding: 24px 16px;
+    }
+    .idle-icon {
+      font-size: 40px;
+      margin-bottom: 10px;
+      opacity: .6;
+    }
+    .idle-text {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    /* ─── toggle ─── */
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 10px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+    }
+    .toggle-label {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-hi);
+    }
+    .toggle-sub {
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--muted);
+    }
+    .toggle {
+      position: relative;
+      width: 36px; height: 20px;
+    }
+    .toggle input { opacity: 0; width: 0; height: 0; }
+    .toggle-slider {
+      position: absolute; inset: 0;
+      background: var(--border);
+      border-radius: 20px;
+      cursor: pointer;
+      transition: .2s;
+    }
+    .toggle-slider::before {
+      content: '';
+      position: absolute;
+      width: 14px; height: 14px;
+      border-radius: 50%;
+      background: var(--muted);
+      top: 3px; left: 3px;
+      transition: .2s;
+    }
+    .toggle input:checked + .toggle-slider { background: rgba(0,229,255,.25); }
+    .toggle input:checked + .toggle-slider::before {
+      transform: translateX(16px);
+      background: var(--accent);
+      box-shadow: 0 0 8px var(--accent);
+    }
+
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <div class="header">
+    <div class="logo">🛡️</div>
+    <div class="brand">
+      <div class="brand-name">Phish<span>Guard</span></div>
+      <div class="brand-sub">AI THREAT DETECTION v1.0</div>
+    </div>
+    <div class="status-dot" id="statusDot"></div>
+  </div>
+
+  <!-- Body -->
+  <div class="body">
+
+    <!-- Auto-scan toggle -->
+    <div class="toggle-row">
+      <div>
+        <div class="toggle-label">Auto-Scan</div>
+        <div class="toggle-sub">Scan emails automatically on open</div>
+      </div>
+      <label class="toggle">
+        <input type="checkbox" id="autoScanToggle" checked />
+        <span class="toggle-slider"></span>
+      </label>
+    </div>
+
+    <!-- Result card -->
+    <div class="result-card scanning" id="resultCard">
+      <div class="result-bar">
+        <div class="result-icon" id="resultIcon">📡</div>
+        <div class="result-info">
+          <div class="result-label" id="resultLabel">AWAITING EMAIL</div>
+          <div class="result-sub" id="resultSub">Open an email to begin analysis</div>
+        </div>
+        <div class="confidence-badge" id="confidenceBadge">--</div>
+      </div>
+      <div class="scan-bar" id="scanBar">
+        <div class="scan-bar-inner" id="scanBarInner"></div>
+      </div>
+    </div>
+
+    <!-- Idle state -->
+    <div class="idle-state hidden" id="idleState">
+      <div class="idle-icon">📭</div>
+      <div class="idle-text">Navigate to Gmail or Outlook<br/>and open an email to scan.</div>
+    </div>
+
+    <!-- Risk factors -->
+    <div id="factorsSection" class="hidden">
+      <div class="section-title">Risk Factors</div>
+      <div class="factors-list" id="factorsList"></div>
+    </div>
+
+    <!-- Actions -->
+    <div class="actions" id="actionsRow">
+      <button class="btn primary" id="scanBtn">⚡ Scan Now</button>
+      <button class="btn" id="reportBtn">📤 Report</button>
+    </div>
+
+  </div>
+
+  <!-- Footer -->
+  <div class="footer">
+    <div class="footer-stat">SCANNED TODAY: <span id="scanCount">0</span></div>
+    <div class="footer-stat">THREATS: <span id="threatCount" style="color:var(--danger)">0</span></div>
+    <div class="footer-stat">MODEL: <span>NB v1</span></div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
