@@ -213,5 +213,6 @@ content.js → Injects warning banner for phishing emails
 ### Machine Learning
 
 * NLP-based phishing detection model
-* Feature extraction and risk scoring
+
+
 
